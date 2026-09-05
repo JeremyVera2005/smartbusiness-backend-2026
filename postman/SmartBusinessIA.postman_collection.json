@@ -1,0 +1,396 @@
+{
+  "info": {
+    "name": "SmartBusiness IA - Flujo completo",
+    "description": "Coleccion para probar el flujo: registro de dueno -> login -> crear negocio -> crear empleado -> login empleado -> productos -> inventario -> venta -> alertas IA. Cada request guarda automaticamente el id/token que genera en variables de la coleccion para que el siguiente request los use solo.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "tokenDueno", "value": "" },
+    { "key": "tokenEmpleado", "value": "" },
+    { "key": "idNegocio", "value": "" },
+    { "key": "idUsuarioEmpleado", "value": "" },
+    { "key": "idProducto", "value": "" },
+    { "key": "emailDueno", "value": "dueno.demo@smartbusiness.com" },
+    { "key": "emailEmpleado", "value": "empleado.demo@smartbusiness.com" }
+  ],
+  "item": [
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Registrar dueno",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/registro", "host": ["{{baseUrl}}"], "path": ["api","auth","registro"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Maria Duena\",\n  \"email\": \"{{emailDueno}}\",\n  \"password\": \"clave12345\"\n}"
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const data = pm.response.json();",
+                "if (data.token) { pm.collectionVariables.set('tokenDueno', data.token); }",
+                "pm.test('Status 201', () => pm.response.to.have.status(201));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Login dueno",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api","auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailDueno}}\",\n  \"password\": \"clave12345\"\n}"
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const data = pm.response.json();",
+                "if (data.token) { pm.collectionVariables.set('tokenDueno', data.token); }",
+                "pm.test('Status 200', () => pm.response.to.have.status(200));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Login empleado",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api","auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailEmpleado}}\",\n  \"password\": \"clave12345\"\n}"
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const data = pm.response.json();",
+                "if (data.token) { pm.collectionVariables.set('tokenEmpleado', data.token); }",
+                "pm.test('Status 200', () => pm.response.to.have.status(200));"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "2. Negocio",
+      "item": [
+        {
+          "name": "Crear negocio (dueno)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenDueno}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/negocios/crear", "host": ["{{baseUrl}}"], "path": ["api","negocios","crear"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Mi Bodega\",\n  \"tipoNegocio\": \"BODEGA\",\n  \"ubicacion\": \"Lima\",\n  \"tamano\": \"PEQUENO\",\n  \"horarioApertura\": \"07:00:00\",\n  \"horarioCierre\": \"22:00:00\"\n}"
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const data = pm.response.json();",
+                "if (data.idNegocio) { pm.collectionVariables.set('idNegocio', data.idNegocio); }",
+                "pm.test('Status 201', () => pm.response.to.have.status(201));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Listar mis negocios (dueno)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenDueno}}" }],
+            "url": { "raw": "{{baseUrl}}/api/negocios", "host": ["{{baseUrl}}"], "path": ["api","negocios"] }
+          }
+        },
+        {
+          "name": "Obtener config por tipo de negocio",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenDueno}}" }],
+            "url": { "raw": "{{baseUrl}}/api/negocios/config/BODEGA", "host": ["{{baseUrl}}"], "path": ["api","negocios","config","BODEGA"] }
+          }
+        },
+        {
+          "name": "Listar mis negocios (empleado)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenEmpleado}}" }],
+            "url": { "raw": "{{baseUrl}}/api/negocios", "host": ["{{baseUrl}}"], "path": ["api","negocios"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Personal (solo dueno)",
+      "item": [
+        {
+          "name": "Crear empleado",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenDueno}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/negocios/{{idNegocio}}/empleados",
+              "host": ["{{baseUrl}}"], "path": ["api","negocios","{{idNegocio}}","empleados"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Juan Empleado\",\n  \"email\": \"{{emailEmpleado}}\",\n  \"password\": \"clave12345\"\n}"
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const data = pm.response.json();",
+                "if (data.idUsuario) { pm.collectionVariables.set('idUsuarioEmpleado', data.idUsuario); }",
+                "pm.test('Status 201', () => pm.response.to.have.status(201));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Listar empleados del negocio",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenDueno}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/negocios/{{idNegocio}}/empleados",
+              "host": ["{{baseUrl}}"], "path": ["api","negocios","{{idNegocio}}","empleados"]
+            }
+          }
+        },
+        {
+          "name": "(Debe fallar 403) Empleado intenta crear otro empleado",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenEmpleado}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/negocios/{{idNegocio}}/empleados",
+              "host": ["{{baseUrl}}"], "path": ["api","negocios","{{idNegocio}}","empleados"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Otro Mas\",\n  \"email\": \"otro@smartbusiness.com\",\n  \"password\": \"clave12345\"\n}"
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Debe responder 403 Forbidden', () => pm.response.to.have.status(403));"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "4. Productos (X-Id-Negocio requerido)",
+      "item": [
+        {
+          "name": "Crear producto",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenEmpleado}}" },
+              { "key": "X-Id-Negocio", "value": "{{idNegocio}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/productos", "host": ["{{baseUrl}}"], "path": ["api","productos"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Coca-Cola 500ml\",\n  \"descripcion\": \"Gaseosa\",\n  \"precioVenta\": 3.50,\n  \"precioCompra\": 2.20,\n  \"stockActual\": 50,\n  \"stockMinimo\": 10,\n  \"categoria\": \"Bebidas\",\n  \"atributosExtra\": {}\n}"
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const data = pm.response.json();",
+                "if (data.idProducto) { pm.collectionVariables.set('idProducto', data.idProducto); }",
+                "pm.test('Status 201', () => pm.response.to.have.status(201));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Listar productos",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tokenEmpleado}}" },
+              { "key": "X-Id-Negocio", "value": "{{idNegocio}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/productos", "host": ["{{baseUrl}}"], "path": ["api","productos"] }
+          }
+        },
+        {
+          "name": "Actualizar producto",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenEmpleado}}" },
+              { "key": "X-Id-Negocio", "value": "{{idNegocio}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/productos/{{idProducto}}",
+              "host": ["{{baseUrl}}"], "path": ["api","productos","{{idProducto}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Coca-Cola 500ml\",\n  \"descripcion\": \"Gaseosa - precio actualizado\",\n  \"precioVenta\": 3.80,\n  \"precioCompra\": 2.20,\n  \"stockActual\": 50,\n  \"stockMinimo\": 10,\n  \"categoria\": \"Bebidas\",\n  \"atributosExtra\": {}\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar productos con stock bajo",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tokenEmpleado}}" },
+              { "key": "X-Id-Negocio", "value": "{{idNegocio}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/productos/stock-bajo", "host": ["{{baseUrl}}"], "path": ["api","productos","stock-bajo"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Inventario",
+      "item": [
+        {
+          "name": "Registrar entrada de stock",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenEmpleado}}" },
+              { "key": "X-Id-Negocio", "value": "{{idNegocio}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/inventario/movimientos", "host": ["{{baseUrl}}"], "path": ["api","inventario","movimientos"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idProducto\": {{idProducto}},\n  \"tipoMovimiento\": \"ENTRADA\",\n  \"cantidad\": 20,\n  \"motivo\": \"Compra a proveedor\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Historial de movimientos del producto",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tokenEmpleado}}" },
+              { "key": "X-Id-Negocio", "value": "{{idNegocio}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventario/movimientos/producto/{{idProducto}}",
+              "host": ["{{baseUrl}}"], "path": ["api","inventario","movimientos","producto","{{idProducto}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Ventas",
+      "item": [
+        {
+          "name": "Registrar venta",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenEmpleado}}" },
+              { "key": "X-Id-Negocio", "value": "{{idNegocio}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/ventas", "host": ["{{baseUrl}}"], "path": ["api","ventas"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"detalles\": [\n    { \"idProducto\": {{idProducto}}, \"cantidad\": 3 }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar ventas",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tokenEmpleado}}" },
+              { "key": "X-Id-Negocio", "value": "{{idNegocio}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/ventas", "host": ["{{baseUrl}}"], "path": ["api","ventas"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. IA",
+      "item": [
+        {
+          "name": "Alertas de stock (fase A)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tokenEmpleado}}" },
+              { "key": "X-Id-Negocio", "value": "{{idNegocio}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/ia/alertas/stock", "host": ["{{baseUrl}}"], "path": ["api","ia","alertas","stock"] }
+          }
+        },
+        {
+          "name": "Alertas de demanda (fase B)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tokenEmpleado}}" },
+              { "key": "X-Id-Negocio", "value": "{{idNegocio}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/ia/alertas/demanda", "host": ["{{baseUrl}}"], "path": ["api","ia","alertas","demanda"] }
+          }
+        },
+        {
+          "name": "Preguntar al asistente (fase C, stub)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenEmpleado}}" },
+              { "key": "X-Id-Negocio", "value": "{{idNegocio}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/ia/asistente", "host": ["{{baseUrl}}"], "path": ["api","ia","asistente"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pregunta\": \"Que deberia comprar esta semana?\"\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
