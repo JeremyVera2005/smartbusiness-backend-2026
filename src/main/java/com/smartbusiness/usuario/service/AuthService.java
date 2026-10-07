@@ -1,5 +1,8 @@
 package com.smartbusiness.usuario.service;
 
+import com.smartbusiness.common.exception.AccesoNoAutorizadoException;
+import com.smartbusiness.common.exception.CredencialesInvalidasException;
+import com.smartbusiness.common.exception.RecursoDuplicadoException;
 import com.smartbusiness.config.JwtUtil;
 import com.smartbusiness.usuario.dto.LoginRequest;
 import com.smartbusiness.usuario.dto.LoginResponse;
@@ -31,7 +34,7 @@ public class AuthService {
     @Transactional
     public LoginResponse registrarDueno(RegistroDuenoRequest request) {
         if (usuarioRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalStateException("Ya existe una cuenta con ese email");
+            throw new RecursoDuplicadoException("Ya existe una cuenta con ese email");
         }
 
         Usuario usuario = Usuario.builder()
@@ -46,14 +49,14 @@ public class AuthService {
 
     public LoginResponse login(LoginRequest request) {
         Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Credenciales inválidas"));
-
-        if (!usuario.getActivo()) {
-            throw new IllegalStateException("La cuenta está deshabilitada");
-        }
+                .orElseThrow(() -> new CredencialesInvalidasException("Credenciales inválidas"));
 
         if (!passwordEncoder.matches(request.getPassword(), usuario.getPasswordHash())) {
-            throw new IllegalArgumentException("Credenciales inválidas");
+            throw new CredencialesInvalidasException("Credenciales inválidas");
+        }
+
+        if (!usuario.getActivo()) {
+            throw new AccesoNoAutorizadoException("La cuenta está deshabilitada");
         }
 
         return generarLoginResponse(usuario);

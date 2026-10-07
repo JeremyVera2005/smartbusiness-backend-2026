@@ -1,10 +1,10 @@
-package smartbusiness_backend;
+package com.smartbusiness;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class SmartbusinessBackendApplicationTests {
+class SmartBusinessApplicationTests {
 
 	@Test
 	void contextLoads() {
