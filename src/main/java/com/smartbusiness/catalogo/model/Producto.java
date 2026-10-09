@@ -50,7 +50,9 @@ public class Producto {
 
     // Campos específicos por rubro (fecha de vencimiento en farmacia,
     // tipo de material en ferretería, etc.) sin crear tablas nuevas por tipo.
-    @Lob
+    // Sin @Lob a propósito: con MySQL fuerza a Hibernate a mandarlo como binario
+    // y rompe columnas JSON ("Cannot create a JSON value from a string with
+    // CHARACTER SET 'binary'").
     @Column(name = "atributos_extra", columnDefinition = "JSON")
     private String atributosExtra;
 

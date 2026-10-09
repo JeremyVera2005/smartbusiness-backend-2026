@@ -22,12 +22,13 @@ public class TipoNegocioConfig {
     private TipoNegocio tipoNegocio;
 
     // JSON crudo, ej: [{"nombre":"fechaVencimiento","tipo":"date","label":"Fecha de vencimiento"}]
-    @Lob
+    // Sin @Lob a propósito: con MySQL fuerza a Hibernate a mandarlo como binario
+    // y rompe columnas JSON ("Cannot create a JSON value from a string with
+    // CHARACTER SET 'binary'").
     @Column(name = "campos_producto_extra", columnDefinition = "JSON")
     private String camposProductoExtra;
 
     // JSON crudo, ej: {"proveedores":true,"vencimientos":true,"lotes":true}
-    @Lob
     @Column(name = "modulos_activos", columnDefinition = "JSON")
     private String modulosActivos;
 }
