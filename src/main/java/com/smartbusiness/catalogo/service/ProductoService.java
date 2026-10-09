@@ -1,5 +1,6 @@
 package com.smartbusiness.catalogo.service;
 
+import com.smartbusiness.negocio.model.RolNegocio;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartbusiness.catalogo.dto.ProductoRequest;
 import com.smartbusiness.catalogo.dto.ProductoResponse;
@@ -28,6 +29,7 @@ public class ProductoService {
     @Transactional
     public ProductoResponse crear(ProductoRequest request) {
         Long idNegocio = obtenerNegocioActivo();
+        validarEsDueno();
 
         Producto producto = Producto.builder()
                 .idNegocio(idNegocio)
@@ -59,6 +61,7 @@ public class ProductoService {
 
     @Transactional
     public ProductoResponse actualizar(Long idProducto, ProductoRequest request) {
+        validarEsDueno();
         Producto producto = buscarYValidarPertenencia(idProducto);
 
         producto.setNombre(request.getNombre());
@@ -76,6 +79,7 @@ public class ProductoService {
 
     @Transactional
     public void eliminar(Long idProducto) {
+        validarEsDueno();
         Producto producto = buscarYValidarPertenencia(idProducto);
         producto.setActivo(false); // borrado lógico: no perder histórico de ventas
         productoRepository.save(producto);
@@ -97,6 +101,14 @@ public class ProductoService {
             throw new AccesoNoAutorizadoException("El producto no pertenece al negocio activo");
         }
         return producto;
+    }
+
+    // El empleado consulta el catálogo, vende y registra movimientos, pero
+    // crear, editar y desactivar productos queda reservado al dueño.
+    private void validarEsDueno() {
+        if (TenantContext.getRolActual() != RolNegocio.DUENO) {
+            throw new AccesoNoAutorizadoException("Solo el dueño del negocio puede crear, editar o desactivar productos");
+        }
     }
 
     private Long obtenerNegocioActivo() {

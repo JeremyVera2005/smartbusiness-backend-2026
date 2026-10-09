@@ -1,18 +1,28 @@
 package com.smartbusiness.ia.service;
 
+import com.smartbusiness.common.exception.AccesoNoAutorizadoException;
+import com.smartbusiness.config.TenantContext;
 import com.smartbusiness.ia.dto.AlertaDemanda;
 import com.smartbusiness.ia.dto.AlertaStock;
+import com.smartbusiness.ventas.model.Venta;
+import com.smartbusiness.ventas.repository.VentaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.text.Normalizer;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
- * Fase C: arma el contexto para el asistente conversacional a partir de lo
- * ya calculado en las fases A y B (nunca manda datos crudos de ventas).
- * La llamada real a la API del LLM se agrega aquí cuando el equipo llegue
- * a esa fase (con RestTemplate/WebClient hacia el proveedor que elijan).
+ * Asistente del negocio. Por ahora responde con reglas: identifica el tema de
+ * la pregunta (reposición, ventas o demanda) y arma la respuesta en lenguaje
+ * claro con las alertas y las ventas registradas.
+ *
+ * TODO (fase C): reemplazar responderPregunta por una llamada a un modelo de
+ * lenguaje usando construirContextoNegocio() + la pregunta del usuario.
  */
 @Service
 public class AsistenteIAService {
@@ -22,6 +32,11 @@ public class AsistenteIAService {
 
     @Autowired
     private DeteccionAnomaliaService deteccionAnomaliaService;
+
+    @Autowired
+    private VentaRepository ventaRepository;
+
+    private enum Tema { REPOSICION, VENTAS, DEMANDA, GENERAL }
 
     public String construirContextoNegocio() {
         List<AlertaStock> alertasStock = recomendacionService.detectarRiesgoQuiebre();
@@ -49,12 +64,83 @@ public class AsistenteIAService {
         return contexto.length() == 0 ? "Sin alertas relevantes en este momento." : contexto.toString();
     }
 
-    // TODO (fase C real): recibir preguntaUsuario, armar el prompt con
-    // construirContextoNegocio() + preguntaUsuario, y llamar a la API del LLM.
     public String responderPregunta(String preguntaUsuario) {
-        String contexto = construirContextoNegocio();
-        return "Contexto actual del negocio:\n" + contexto +
-               "\n\n[Pendiente: conectar con la API del LLM usando este contexto + la pregunta: \"" +
-               preguntaUsuario + "\"]";
+        return switch (detectarTema(preguntaUsuario)) {
+            case REPOSICION -> responderReposicion();
+            case VENTAS -> responderVentas();
+            case DEMANDA -> responderDemanda();
+            case GENERAL -> responderReposicion() + "\n\n" + responderVentas();
+        };
+    }
+
+    private Tema detectarTema(String pregunta) {
+        String q = Normalizer.normalize(pregunta == null ? "" : pregunta, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT);
+        if (q.matches(".*(agot|reabast|repon|repos|quiebre|stock|comprar|falta).*")) {
+            return Tema.REPOSICION;
+        }
+        if (q.matches(".*(demanda|rota|tendencia|menos|mas vendid|vende mas|venden mas|bajaron|subieron).*")) {
+            return Tema.DEMANDA;
+        }
+        if (q.matches(".*(venta|vend|ingres|gan|semana|caja|cobr).*")) {
+            return Tema.VENTAS;
+        }
+        return Tema.GENERAL;
+    }
+
+    private String responderReposicion() {
+        List<AlertaStock> alertas = recomendacionService.detectarRiesgoQuiebre();
+        if (alertas.isEmpty()) {
+            return "Por ahora ningún producto está en riesgo de agotarse: con el ritmo de ventas de las últimas dos semanas, todos tienen stock para más de 5 días.";
+        }
+        StringBuilder r = new StringBuilder(alertas.size() == 1
+                ? "Hay 1 producto que conviene reponer pronto:\n"
+                : "Hay " + alertas.size() + " productos que conviene reponer pronto:\n");
+        alertas.stream()
+                .sorted((a, b) -> Double.compare(a.getDiasRestantesEstimados(), b.getDiasRestantesEstimados()))
+                .forEach(a -> r.append(String.format(Locale.ROOT, "• %s: quedan %d unidades, alcanzan para unos %.1f días%s.%n",
+                        a.getNombreProducto(), a.getStockActual(), a.getDiasRestantesEstimados(),
+                        "CRITICO".equals(a.getNivel()) ? " (urgente)" : "")));
+        r.append("Los marcados como urgentes podrían agotarse en menos de 2 días.");
+        return r.toString();
+    }
+
+    private String responderVentas() {
+        Long idNegocio = TenantContext.getNegocioActual();
+        if (idNegocio == null) {
+            throw new AccesoNoAutorizadoException("No se especificó un negocio activo (header X-Id-Negocio)");
+        }
+        LocalDateTime ahora = LocalDateTime.now();
+        List<Venta> actual = ventaRepository.findEntreFechas(idNegocio, ahora.minusDays(7), ahora);
+        List<Venta> anterior = ventaRepository.findEntreFechas(idNegocio, ahora.minusDays(14), ahora.minusDays(7));
+        BigDecimal totalActual = sumar(actual);
+        BigDecimal totalAnterior = sumar(anterior);
+
+        StringBuilder r = new StringBuilder(String.format(Locale.ROOT,
+                "En los últimos 7 días registraste %d ventas por S/ %.2f.", actual.size(), totalActual));
+        if (totalAnterior.signum() > 0) {
+            double variacion = totalActual.subtract(totalAnterior).doubleValue() / totalAnterior.doubleValue() * 100;
+            r.append(String.format(Locale.ROOT, " La semana anterior fueron %d ventas por S/ %.2f, es decir, %s %.0f %%.",
+                    anterior.size(), totalAnterior, variacion >= 0 ? "un aumento de" : "una disminución de", Math.abs(variacion)));
+        }
+        return r.toString();
+    }
+
+    private String responderDemanda() {
+        List<AlertaDemanda> alertas = deteccionAnomaliaService.detectarAnomalias();
+        if (alertas.isEmpty()) {
+            return "No hay cambios fuertes de demanda: ningún producto varió 30 % o más entre esta semana y la anterior.";
+        }
+        StringBuilder r = new StringBuilder("Estos productos cambiaron su demanda respecto de la semana anterior:\n");
+        alertas.forEach(a -> r.append(String.format(Locale.ROOT, "• %s: %s, de %d a %d unidades (%+.0f %%).%n",
+                a.getNombreProducto(), "ALTA_DEMANDA".equals(a.getTipo()) ? "se vende más" : "se vende menos",
+                a.getUnidadesSemanaAnterior(), a.getUnidadesSemanaActual(), a.getVariacionPorcentual())));
+        r.append("Revisa si conviene ajustar las compras de estos productos.");
+        return r.toString();
+    }
+
+    private BigDecimal sumar(List<Venta> ventas) {
+        return ventas.stream().map(Venta::getTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

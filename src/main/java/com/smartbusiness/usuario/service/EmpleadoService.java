@@ -122,6 +122,32 @@ public class EmpleadoService {
         usuarioNegocioRepository.delete(relacion);
     }
 
+    /**
+     * El dueño asigna una contraseña temporal a un empleado que olvidó la
+     * suya. No aplica a quien es dueño de algún negocio: esa persona gestiona
+     * su propia cuenta y otro dueño no debe poder tomar control de ella.
+     */
+    @Transactional
+    public void restablecerPassword(Long idNegocio, Long idUsuarioEmpleado, Long idUsuarioSolicitante, String nuevaPassword) {
+        validarEsDueno(idNegocio, idUsuarioSolicitante);
+
+        UsuarioNegocio relacion = usuarioNegocioRepository
+                .findByIdIdUsuarioAndIdIdNegocio(idUsuarioEmpleado, idNegocio)
+                .orElseThrow(() -> new ResourceNotFoundException("El usuario no pertenece a este negocio"));
+
+        boolean esDuenoEnAlgunNegocio = usuarioNegocioRepository.findByIdIdUsuario(idUsuarioEmpleado).stream()
+                .anyMatch(rel -> rel.getRol() == RolNegocio.DUENO);
+        if (relacion.getRol() != RolNegocio.EMPLEADO || esDuenoEnAlgunNegocio) {
+            throw new AccesoNoAutorizadoException(
+                    "Solo puedes restablecer la contraseña de empleados que no son dueños de ningún negocio");
+        }
+
+        Usuario usuario = usuarioRepository.findById(idUsuarioEmpleado)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+        usuario.setPasswordHash(passwordEncoder.encode(nuevaPassword));
+        usuarioRepository.save(usuario);
+    }
+
     private void validarEsDueno(Long idNegocio, Long idUsuarioSolicitante) {
         UsuarioNegocio relacion = usuarioNegocioRepository
                 .findByIdIdUsuarioAndIdIdNegocio(idUsuarioSolicitante, idNegocio)

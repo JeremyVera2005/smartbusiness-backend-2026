@@ -2,6 +2,7 @@ package com.smartbusiness.usuario.controller;
 
 import com.smartbusiness.usuario.dto.CrearEmpleadoRequest;
 import com.smartbusiness.usuario.dto.EmpleadoResponse;
+import com.smartbusiness.usuario.dto.RestablecerPasswordRequest;
 import com.smartbusiness.usuario.service.EmpleadoService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,15 @@ public class EmpleadoController {
                                                 @PathVariable Long idUsuarioEmpleado) {
         Long idUsuarioSolicitante = obtenerIdUsuarioAutenticado();
         empleadoService.quitarEmpleado(idNegocio, idUsuarioEmpleado, idUsuarioSolicitante);
+        return ResponseEntity.noContent().build();
+    }
+
+    // PUT /api/negocios/{idNegocio}/empleados/{id}/password -> el dueño asigna una contraseña temporal
+    @PutMapping("/{idUsuarioEmpleado}/password")
+    public ResponseEntity<Void> restablecerPassword(@PathVariable Long idNegocio,
+                                                    @PathVariable Long idUsuarioEmpleado,
+                                                    @Valid @RequestBody RestablecerPasswordRequest request) {
+        empleadoService.restablecerPassword(idNegocio, idUsuarioEmpleado, obtenerIdUsuarioAutenticado(), request.getPassword());
         return ResponseEntity.noContent().build();
     }
 
