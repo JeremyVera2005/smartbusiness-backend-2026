@@ -2,8 +2,11 @@ package com.smartbusiness.usuario.service;
 
 import com.smartbusiness.common.exception.AccesoNoAutorizadoException;
 import com.smartbusiness.common.exception.CredencialesInvalidasException;
+import com.smartbusiness.common.exception.DatoInvalidoException;
+import com.smartbusiness.common.exception.ResourceNotFoundException;
 import com.smartbusiness.common.exception.RecursoDuplicadoException;
 import com.smartbusiness.config.JwtUtil;
+import com.smartbusiness.usuario.dto.CambiarPasswordRequest;
 import com.smartbusiness.usuario.dto.LoginRequest;
 import com.smartbusiness.usuario.dto.LoginResponse;
 import com.smartbusiness.usuario.dto.RegistroDuenoRequest;
@@ -60,6 +63,28 @@ public class AuthService {
         }
 
         return generarLoginResponse(usuario);
+    }
+
+    /**
+     * Cambio de contraseña desde "Mi cuenta". Pide la actual para que una
+     * sesión olvidada abierta no baste para tomar control de la cuenta.
+     * La contraseña actual incorrecta es 400 (no 401) para que el frontend
+     * no lo confunda con una sesión expirada.
+     */
+    @Transactional
+    public void cambiarPassword(Long idUsuario, CambiarPasswordRequest request) {
+        Usuario usuario = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        if (!passwordEncoder.matches(request.getPasswordActual(), usuario.getPasswordHash())) {
+            throw new DatoInvalidoException("La contraseña actual no es correcta");
+        }
+        if (passwordEncoder.matches(request.getPasswordNueva(), usuario.getPasswordHash())) {
+            throw new DatoInvalidoException("La nueva contraseña debe ser distinta de la actual");
+        }
+
+        usuario.setPasswordHash(passwordEncoder.encode(request.getPasswordNueva()));
+        usuarioRepository.save(usuario);
     }
 
     private LoginResponse generarLoginResponse(Usuario usuario) {

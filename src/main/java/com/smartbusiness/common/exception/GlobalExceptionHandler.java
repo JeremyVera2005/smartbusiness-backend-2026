@@ -1,5 +1,7 @@
 package com.smartbusiness.common.exception;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -14,6 +16,8 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(ResourceNotFoundException ex) {
         return construirRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
@@ -22,6 +26,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccesoNoAutorizadoException.class)
     public ResponseEntity<Map<String, Object>> handleForbidden(AccesoNoAutorizadoException ex) {
         return construirRespuesta(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(DatoInvalidoException.class)
+    public ResponseEntity<Map<String, Object>> handleBadRequest(DatoInvalidoException ex) {
+        return construirRespuesta(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
     @ExceptionHandler(RecursoDuplicadoException.class)
@@ -47,9 +56,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    // Reglas de negocio que impiden la operación (stock insuficiente,
+    // empleado ya asignado, ...): el mensaje está pensado para el usuario.
+    @ExceptionHandler(ReglaNegocioException.class)
+    public ResponseEntity<Map<String, Object>> handleBusinessRule(ReglaNegocioException ex) {
+        return construirRespuesta(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneral(Exception ex) {
-        return construirRespuesta(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno: " + ex.getMessage());
+        log.error("Error no controlado", ex);
+        return construirRespuesta(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Ocurrió un error inesperado. Intenta nuevamente; si persiste, contacta al administrador.");
     }
 
     private ResponseEntity<Map<String, Object>> construirRespuesta(HttpStatus status, String mensaje) {

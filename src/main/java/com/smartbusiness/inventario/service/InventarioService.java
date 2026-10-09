@@ -1,5 +1,6 @@
 package com.smartbusiness.inventario.service;
 
+import com.smartbusiness.common.exception.ReglaNegocioException;
 import com.smartbusiness.catalogo.model.Producto;
 import com.smartbusiness.catalogo.repository.ProductoRepository;
 import com.smartbusiness.common.exception.AccesoNoAutorizadoException;
@@ -39,6 +40,12 @@ public class InventarioService {
 
         if (!producto.getIdNegocio().equals(idNegocio)) {
             throw new AccesoNoAutorizadoException("El producto no pertenece al negocio activo");
+        }
+
+        if (request.getTipoMovimiento() == TipoMovimiento.SALIDA
+                && request.getCantidad() > producto.getStockActual()) {
+            throw new ReglaNegocioException("Stock insuficiente para \"" + producto.getNombre()
+                    + "\": hay " + producto.getStockActual() + " y se intentó retirar " + request.getCantidad() + ".");
         }
 
         int nuevoStock = calcularNuevoStock(producto.getStockActual(), request.getTipoMovimiento(), request.getCantidad());

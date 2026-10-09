@@ -1,5 +1,6 @@
 package com.smartbusiness.ventas.service;
 
+import com.smartbusiness.common.exception.ReglaNegocioException;
 import com.smartbusiness.catalogo.model.Producto;
 import com.smartbusiness.catalogo.repository.ProductoRepository;
 import com.smartbusiness.common.exception.AccesoNoAutorizadoException;
@@ -62,7 +63,7 @@ public class VentaService {
             }
 
             if (producto.getStockActual() < detalleRequest.getCantidad()) {
-                throw new IllegalStateException(
+                throw new ReglaNegocioException(
                         "Stock insuficiente para el producto: " + producto.getNombre());
             }
 

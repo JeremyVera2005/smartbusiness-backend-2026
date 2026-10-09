@@ -1,5 +1,6 @@
 package com.smartbusiness.usuario.service;
 
+import com.smartbusiness.common.exception.ReglaNegocioException;
 import com.smartbusiness.common.exception.AccesoNoAutorizadoException;
 import com.smartbusiness.common.exception.ResourceNotFoundException;
 import com.smartbusiness.negocio.model.RolNegocio;
@@ -68,7 +69,7 @@ public class EmpleadoService {
                 new UsuarioNegocio.UsuarioNegocioId(nuevoUsuario.getIdUsuario(), idNegocio);
 
         if (usuarioNegocioRepository.existsById(relacionId)) {
-            throw new IllegalStateException("Ese usuario ya está asignado a este negocio");
+            throw new ReglaNegocioException("Ese usuario ya está asignado a este negocio");
         }
 
         UsuarioNegocio relacion = UsuarioNegocio.builder()
